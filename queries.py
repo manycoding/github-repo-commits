@@ -1,0 +1,3 @@
+get_authors = '{ repository(owner: "%s", name: "%s") { ref(qualifiedName: "master") { target { ... on Commit { history(first: 100, since: "%s", until: "%s") { totalCount edges { node { author { name email} } } pageInfo { endCursor hasNextPage } } } } } } }'
+
+get_commit_count = '{ repository(owner: "%s", name: "%s") { ref(qualifiedName: "master") { target { ... on Commit { history(first: 100, since: "%s", until: "%s", author: {emails: ["%s"]}) { totalCount edges { node { author { name} message committedDate } } pageInfo { endCursor hasNextPage } } } } } } }'
