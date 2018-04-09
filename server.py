@@ -1,21 +1,14 @@
 from flask import Flask, jsonify, request
-# from graphene import ObjectType, String, Schema
-# from flask_graphql import GraphQLView
+from werkzeug.contrib.cache import SimpleCache
 import requests
 import queries
 
+cache = SimpleCache()
 
 url_grapqhql_api = "https://api.github.com/graphql"
-# url_rest_api = "https://api.github.com"
-# until = "2018-04-06T23:59:59+00:00"
-# since = "2018-04-06T00:00:00+00:00"
-# repo = ""
-# user = ""
 
 
 def do_post(auth_header="", url=url_grapqhql_api, payload=""):
-    # api_token = "8625ad160fce6237bf301e24878418ef281345d7"
-    # headers = {'Authorization': f'token {api_token}'}
     headers = {'Authorization': auth_header}
     print(headers)
     print(url)
@@ -27,14 +20,14 @@ def do_post(auth_header="", url=url_grapqhql_api, payload=""):
 
 
 def get_unique_authors(authors_data):
-    author_nodes = authors_data["data"]["repository"]["ref"]["target"]["history"]["edges"]
+    author_nodes = authors_data["data"]["repository"]["ref"]["target"]["history"]["edges"] # noqa
     return set([author["node"]["author"]["email"] for author in author_nodes])
 
 
 def get_author_data(auth_header, repo, user, author_email, since, until):
     author = {}
     payload = {
-        'query': queries.get_commit_count % (user, repo, since, until, author_email)
+        'query': queries.get_commit_count % (user, repo, since, until, author_email) # noqa
     }
     r = do_post(auth_header=auth_header, payload=payload)
     if r.status_code == 200:
@@ -79,19 +72,7 @@ def serve_authors(auth_header, repo, user, since, until):
         return None, r.status_code, r.text
 
 
-# class Query(ObjectType):
-#     get_authors = String(description='Hello')
-
-#     def resolve_get_authors(self, args):
-#         serve_authors()
-
-
-# view_func = GraphQLView.as_view(
-#     'graphql', schema=Schema(query=Query), graphiql=True)
-
-
 app = Flask(__name__)
-# app.add_url_rule('/', view_func=view_func)
 
 
 class InvalidUsage(Exception):
@@ -126,14 +107,19 @@ def commits(user, repo):
     auth_header = request.headers.get('Authorization', default="")
     since = request.args.get('since', default='2018-04-06T00:00:00+00:00')
     until = request.args.get('until', default='2018-04-06T23:59:59+00:00')
-    commits_data, status_code, text = serve_authors(
-        auth_header=auth_header,
-        user=user,
-        repo=repo,
-        since=since,
-        until=until)
-    if status_code != 200 or not commits_data:
-        raise InvalidUsage(text, status_code=status_code)
+
+    cache_hash = f"{user},{repo},{since},{until}"
+    commits_data = cache.get(cache_hash)
+    if not commits_data:
+        commits_data, status_code, text = serve_authors(
+            auth_header=auth_header,
+            user=user,
+            repo=repo,
+            since=since,
+            until=until)
+        if status_code != 200 or not commits_data:
+            raise InvalidUsage(text, status_code=status_code)
+        cache.set(cache_hash, commits_data, timeout=30 * 60)
     print(f"commits data\n{commits_data}")
     print(f"type(commits_data) {type(commits_data)}")
     return jsonify(commits_data)
