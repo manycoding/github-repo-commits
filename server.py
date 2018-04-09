@@ -25,6 +25,9 @@ def get_unique_authors(authors_data):
 
 
 def get_author_data(auth_header, repo, user, author_email, since, until):
+    """
+        Return totalCount, name and commits for a singular author
+    """
     author = {}
     payload = {
         'query': queries.get_commit_count % (user, repo, since, until, author_email) # noqa
@@ -40,6 +43,9 @@ def get_author_data(auth_header, repo, user, author_email, since, until):
 
 
 def get_commit_data(commit_edges):
+    """
+        Return commit messages and data
+    """
     commits = []
     for edge in commit_edges:
         commit = {}
@@ -50,6 +56,10 @@ def get_commit_data(commit_edges):
 
 
 def serve_authors(auth_header, repo, user, since, until):
+    """
+        Return the list of users showing the total number of user
+        commits between since and until for a given repo
+    """
     query = {'query': queries.get_authors % (user, repo, since, until)}
     r = do_post(auth_header=auth_header, payload=query)
     if r.status_code == 200 and "errors" not in r.json().keys():
