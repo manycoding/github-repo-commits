@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from werkzeug.contrib.cache import SimpleCache
 import requests
 import queries
+import datetime
 
 cache = SimpleCache()
 
@@ -17,69 +18,6 @@ def do_post(auth_header="", url=url_grapqhql_api, payload=""):
     print(r.status_code)
     print(r.text)
     return r
-
-
-def get_unique_authors(authors_data):
-    author_nodes = authors_data["data"]["repository"]["ref"]["target"]["history"]["edges"] # noqa
-    return set([author["node"]["author"]["email"] for author in author_nodes])
-
-
-def get_author_data(auth_header, repo, user, author_email, since, until):
-    """
-        Return totalCount, name and commits for a singular author
-    """
-    author = {}
-    payload = {
-        'query': queries.get_commit_count % (user, repo, since, until, author_email) # noqa
-    }
-    r = do_post(auth_header=auth_header, payload=payload)
-    if r.status_code == 200:
-        history = r.json()["data"]["repository"]["ref"]["target"]["history"]
-        author["totalCount"] = history["totalCount"]
-        author["name"] = history["edges"][0]["node"]["author"]["name"]
-        author["commits"] = get_commit_data(history["edges"])
-        return author
-    raise InvalidUsage(r.text, status_code=r.status_code)
-
-
-def get_commit_data(commit_edges):
-    """
-        Return commit messages and data
-    """
-    commits = []
-    for edge in commit_edges:
-        commit = {}
-        commit["message"] = edge["node"]["message"]
-        commit["committedDate"] = edge["node"]["committedDate"]
-        commits.append(commit)
-    return commits
-
-
-def serve_authors(auth_header, repo, user, since, until):
-    """
-        Return the list of users showing the total number of user
-        commits between since and until for a given repo
-    """
-    query = {'query': queries.get_authors % (user, repo, since, until)}
-    r = do_post(auth_header=auth_header, payload=query)
-    if r.status_code == 200 and "errors" not in r.json().keys():
-        authors = get_unique_authors(r.json())
-        print(f"authors\n{authors}")
-        commits = []
-
-        for email in authors:
-            author = get_author_data(
-                auth_header=auth_header,
-                author_email=email,
-                since=since,
-                until=until,
-                repo=repo,
-                user=user)
-            commits.append(author)
-        print(f"commits\n{commits}")
-        return commits, r.status_code, r.text
-    else:
-        return None, r.status_code, r.text
 
 
 app = Flask(__name__)
@@ -112,26 +50,90 @@ app.register_error_handler(403, lambda e: 'Wrong authorization header')
 app.register_error_handler(500, lambda e: 'General error')
 
 
+def update_user_data(commit_edges, filtered_users=None):
+    users = filtered_users if filtered_users else {}
+    for commit in commit_edges:
+        print(f"EDGE {commit}")
+        print(f"EDGE type {type(commit)}")
+        node = commit["node"]
+        print(f"NODE {node}")
+        if node["committer"]["user"]:
+            login = node["committer"]["user"]["login"]
+        else:
+            login = node["committer"]["name"]
+        print(f"LOGIN {login}")
+
+        c = {}
+        c["message"] = node["message"]
+        c["committedDate"] = node["committedDate"]
+        if login in users.keys():
+            users[login]["totalCount"] += 1
+            commits = users[login]["commits"]
+            commits.append(c)
+            users[login]["commits"] = commits
+        else:
+            committer = {}
+            committer["totalCount"] = 1
+            commits = []
+            commits.append(c)
+            committer["commits"] = commits
+            users[login] = committer
+    return users
+
+
+def get_user_commits(auth_header, user, repo, since, until):
+    query = {'query': queries.get_commits % (user, repo, since, until, "")}
+    r = do_post(auth_header=auth_header, payload=query)
+    if r.status_code == 200 and "errors" not in r.json().keys():
+        body = r.json()
+        history = body["data"]["repository"]["ref"]["target"]["history"]
+
+        users = update_user_data(history["edges"])
+        cursor = history["pageInfo"]["endCursor"]
+        has_next_page = history["pageInfo"]["hasNextPage"]
+        while has_next_page:
+            cursor_filter = f', after: "{cursor}"'
+            query = {'query': queries.get_commits % (
+                user, repo, since, until, cursor_filter)}
+            r = do_post(auth_header=auth_header, payload=query)
+            if r.status_code != 200 or "errors" in r.json().keys():
+                return None, r.status_code, r.text
+
+            body = r.json()
+            history = body["data"]["repository"]["ref"]["target"]["history"]
+            users = update_user_data(history["edges"], users)
+            has_next_page = history["pageInfo"]["hasNextPage"]
+            cursor = history["pageInfo"]["endCursor"]
+
+        return users, r.status_code, r.text
+    else:
+        return None, r.status_code, r.text
+
+
 @app.route('/<user>/<repo>/commits/')
 def commits(user, repo):
     auth_header = request.headers.get('Authorization', default="")
-    since = request.args.get('since', default='2018-04-06T00:00:00+00:00')
-    until = request.args.get('until', default='2018-04-06T23:59:59+00:00')
+    since = request.args.get('since', default=str(datetime.date.today()), type=str)  # noqa
+    until = request.args.get('until', default=str(datetime.date.today()), type=str)  # noqa
+    if not since or not until:
+        raise InvalidUsage(
+            "Empty sine or until parameters are not supported", status_code=422)
+    since = f"{since}T00:00:00+00:00"
+    until = f"{until}T23:59:59+00:00"
 
     cache_hash = f"{user},{repo},{since},{until}"
     commits_data = cache.get(cache_hash)
     if not commits_data:
-        commits_data, status_code, text = serve_authors(
+        commits_data, status_code, text = get_user_commits(
             auth_header=auth_header,
             user=user,
             repo=repo,
             since=since,
             until=until)
-        if status_code != 200 or not commits_data:
+        if status_code != 200:
             raise InvalidUsage(text, status_code=status_code)
         cache.set(cache_hash, commits_data, timeout=30 * 60)
     print(f"commits data\n{commits_data}")
-    print(f"type(commits_data) {type(commits_data)}")
     return jsonify(commits_data)
 
 

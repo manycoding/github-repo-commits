@@ -4,6 +4,7 @@ Get commit data from a github repo
 # What
 
     It's a flask app which exposes an endpoint to query user commit data. I used caching, so the first query could take up to 30 seconds.
+    Returns user logins along with commits per specified date.
 
 # Serverless
 
