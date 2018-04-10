@@ -11,12 +11,12 @@ url_grapqhql_api = "https://api.github.com/graphql"
 
 def do_post(auth_header="", url=url_grapqhql_api, payload=""):
     headers = {'Authorization': auth_header}
-    print(headers)
-    print(url)
-    print(payload)
+    # print(headers)
+    # print(url)
+    # print(payload)
     r = requests.post(url=url, json=payload, headers=headers)
-    print(r.status_code)
-    print(r.text)
+    # print(r.status_code)
+    # print(r.text)
     return r
 
 
@@ -53,15 +53,15 @@ app.register_error_handler(500, lambda e: 'General error')
 def update_user_data(commit_edges, filtered_users=None):
     users = filtered_users if filtered_users else {}
     for commit in commit_edges:
-        print(f"EDGE {commit}")
-        print(f"EDGE type {type(commit)}")
+        # print(f"EDGE {commit}")
+        # print(f"EDGE type {type(commit)}")
         node = commit["node"]
-        print(f"NODE {node}")
+        # print(f"NODE {node}")
         if node["committer"]["user"]:
             login = node["committer"]["user"]["login"]
         else:
             login = node["committer"]["name"]
-        print(f"LOGIN {login}")
+        # print(f"LOGIN {login}")
 
         c = {}
         c["message"] = node["message"]
@@ -133,7 +133,7 @@ def commits(user, repo):
         if status_code != 200:
             raise InvalidUsage(text, status_code=status_code)
         cache.set(cache_hash, commits_data, timeout=30 * 60)
-    print(f"commits data\n{commits_data}")
+    # print(f"commits data\n{commits_data}")
     return jsonify(commits_data)
 
 
