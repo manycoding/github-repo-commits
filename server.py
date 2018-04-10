@@ -51,6 +51,9 @@ app.register_error_handler(500, lambda e: 'General error')
 
 
 def update_user_data(commit_edges, filtered_users=None):
+    """
+    Updates or creates user commits data in JSON format
+    """
     users = filtered_users if filtered_users else {}
     for commit in commit_edges:
         # print(f"EDGE {commit}")
@@ -82,6 +85,11 @@ def update_user_data(commit_edges, filtered_users=None):
 
 
 def get_user_commits(auth_header, user, repo, since, until):
+    """
+    Makes a query to github GraphQL API and returns combined user
+    commit data.
+    Supports pagination. 
+    """
     query = {'query': queries.get_commits % (user, repo, since, until, "")}
     r = do_post(auth_header=auth_header, payload=query)
     if r.status_code == 200 and "errors" not in r.json().keys():
@@ -112,6 +120,19 @@ def get_user_commits(auth_header, user, repo, since, until):
 
 @app.route('/<user>/<repo>/commits/')
 def commits(user, repo):
+    """
+    Serve commits data
+
+    parameters
+    since - date filter from which the results should be fetched in
+    2018-01-01 format. Default is today
+    until - the date until the results should be fetched, default is today
+
+    headers
+    {'Authorization': 'token token_value'}
+    token_value - a github token to access its API. The endpoint does not
+    require additional permitions except basic ones
+    """
     auth_header = request.headers.get('Authorization', default="")
     since = request.args.get('since', default=str(datetime.date.today()), type=str)  # noqa
     until = request.args.get('until', default=str(datetime.date.today()), type=str)  # noqa
