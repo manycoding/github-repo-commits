@@ -2,18 +2,15 @@
 Get commit data from a github repo
 
 # What
-
 It's a flask app which exposes an endpoint to query user commit data.
 Returns committer logins (or name if login not found) along with commits (message and commmittedDate) per specified date frame 
 
 # Serverless
-
 No server, no database
 
     https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/
 
 # In Short
-
     curl -X GET \
     'https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
     -H 'Authorization: token $token' \
@@ -24,7 +21,7 @@ No server, no database
     * pip install -r requirements.txt
     * python server.py
 
-# Explanation of architecture and API design
+# How
 My goal was to make the simplest yet scalable solution, that's why I chose GraphQL to query the necessary data and service it via one endpoint and AWS to make it scallable. The AWS Lambda setup is made with Zappa.
 
 Limitations:
@@ -33,14 +30,13 @@ Limitations:
 * Some repos have a solid number of commits per week, a request timeout could happen if the graphql query will take more than 30 seconds.
 * AWS Lambda and the app itself has caching, so the following requests are faster  
 
-# If you had more time, what would you like to improve?
+# To Do
 * Add tests
 * Setup proper AWS logging, e.g. CloudWatch
 * Talk about the usage and update the app accordingly. For example, I assumed to server data per committer login or name as they seemed like proper fields for the task. Perhaps other fields should be used.
 * Improve the response speed if necessary.
 
 # Examples
-
     curl -X GET \
       'https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
       -H 'Authorization: token $token_value' \
