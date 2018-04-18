@@ -5,14 +5,9 @@ Get commit data from a github repo
 It's a flask app which exposes an endpoint to query user commit data.
 Returns committer logins (or name if login not found) along with commits (message and commmittedDate) per specified date frame 
 
-# Serverless
-No server, no database
-
-    https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/
-
 # In Short
     curl -X GET \
-    'https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
+    '$URL/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
     -H 'Authorization: token $token' \
     -H 'Cache-Control: no-cache' \
     -H 'Content-Type: application/json'
@@ -38,7 +33,7 @@ Limitations:
 
 # Examples
     curl -X GET \
-      'https://dzake583i3.execute-api.ap-northeast-1.amazonaws.com/dev/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
+      '$URL/manycoding/file-repo/commits/?since=2018-02-10&until=2018-04-10' \
       -H 'Authorization: token $token_value' \
       -H 'Cache-Control: no-cache' \
       -H 'Content-Type: application/json' 
